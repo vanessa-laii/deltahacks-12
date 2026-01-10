@@ -50,12 +50,23 @@ export async function saveToGallery(canvas: HTMLCanvasElement): Promise<string |
     });
 
     if (!response.ok) {
-      const error = await response.json();
+      let error;
+      try {
+        error = await response.json();
+      } catch {
+        error = { message: `HTTP ${response.status}: ${response.statusText}` };
+      }
       console.error('Error saving to gallery:', error);
       return null;
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch (error) {
+      console.error('Error parsing response:', error);
+      return null;
+    }
     return result.image?.id || null;
   } catch (error) {
     console.error('Error saving to gallery:', error);
@@ -75,7 +86,13 @@ export async function getGallery(): Promise<SavedImage[]> {
       return [];
     }
 
-    const result = await response.json();
+    let result;
+    try {
+      result = await response.json();
+    } catch (error) {
+      console.error('Error parsing gallery response:', error);
+      return [];
+    }
     
     // Transform API response to match SavedImage interface
     interface ApiImage {

@@ -10,7 +10,16 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    const supabase = createServerClient();
+    let supabase;
+    try {
+      supabase = createServerClient();
+    } catch (error) {
+      console.error('Failed to create Supabase client:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to initialize database connection' },
+        { status: 500 }
+      );
+    }
 
     // Get image record to find storage path
     const { data: imageData, error: fetchError } = await supabase

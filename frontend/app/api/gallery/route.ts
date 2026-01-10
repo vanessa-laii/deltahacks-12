@@ -6,7 +6,16 @@ import { createServerClient } from '@/lib/supabase';
  */
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    let supabase;
+    try {
+      supabase = createServerClient();
+    } catch (error) {
+      console.error('Failed to create Supabase client:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to initialize database connection' },
+        { status: 500 }
+      );
+    }
     
     // TODO: Add authentication and filter by user_id
     // For now, return all images (you'll need to add user auth later)
@@ -24,7 +33,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error in GET /api/gallery:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }
     );
   }
@@ -35,7 +44,17 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient();
+    let supabase;
+    try {
+      supabase = createServerClient();
+    } catch (error) {
+      console.error('Failed to create Supabase client:', error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : 'Failed to initialize database connection' },
+        { status: 500 }
+      );
+    }
+    
     const body = await request.json();
     const { imageDataUrl, userId } = body;
 
