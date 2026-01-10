@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+:root {
+  /* Color Palette - Cheerful, Minimalistic, Elderly-Friendly */
+  --cream-beige: #F5E6D3;
+  --taupe: #8B7D6B;
+  --sage-green: #A8C09A;
+  --pale-blue: #D4E4F0;
+  --slate-blue: #8FA8C7;
+  --peach: #F4C2A1;
+  --rose: #D4A5A5;
+  --terracotta: #C17767;
+  
+  /* UI Colors */
+  --background: #ffffff;
+  --foreground: #6B5D5D; /* Softer text color using taupe */
+  --primary-bg: #ffffff;
+  --primary-text: #6B5D5D;
+  --secondary-bg: #F5E6D3; /* Cream beige for soft backgrounds */
+  --accent: #8FA8C7; /* Slate blue for accents */
+  --border-soft: #D4E4F0; /* Pale blue for soft borders */
+  --card-bg: #FAFAFA;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: Helvetica, Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
+}
+
+/* Force light mode for dementia-friendly UI */
+body {
+  background: var(--primary-bg);
+  color: var(--primary-text);
+  font-family: Helvetica, Arial, sans-serif;
+  font-size: 24px; /* Minimum 24pt for accessibility */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
+}
+
+/* Ensure high contrast for all text */
+* {
+  color: var(--primary-text);
+}
+
+/* Minimum button sizes for accessibility (80px tall) */
+button {
+  min-height: 80px;
+  min-width: 80px;
+  cursor: pointer;
+  border-radius: 12px;
+}
+
+/* High contrast focus indicators */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Prevent text selection on UI elements for easier interaction */
+button {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
