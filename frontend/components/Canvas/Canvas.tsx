@@ -5,9 +5,10 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 interface CanvasProps {
   color: string;
   brushSize: number;
+  isEraser?: boolean;
 }
 
-export default function Canvas({ color, brushSize }: CanvasProps) {
+export default function Canvas({ color, brushSize, isEraser = false }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -129,7 +130,18 @@ export default function Canvas({ color, brushSize }: CanvasProps) {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.strokeStyle = color;
+    if (isEraser) {
+      // Eraser mode: use destination-out composite to erase
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0, 0, 0, 1)'; // Fully opaque for erasing
+      ctx.fillStyle = 'rgba(0, 0, 0, 1)';
+    } else {
+      // Normal drawing mode
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+    }
+
     ctx.lineWidth = brushSize;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -144,10 +156,12 @@ export default function Canvas({ color, brushSize }: CanvasProps) {
     } else {
       // Draw a dot at current point
       ctx.arc(currentX, currentY, brushSize / 2, 0, Math.PI * 2);
-      ctx.fillStyle = color;
       ctx.fill();
     }
-  }, [color, brushSize]);
+
+    // Reset composite operation after drawing
+    ctx.globalCompositeOperation = 'source-over';
+  }, [color, brushSize, isEraser]);
 
   // Handle mouse/pointer down
   const handleStart = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
@@ -198,7 +212,7 @@ export default function Canvas({ color, brushSize }: CanvasProps) {
       onPointerUp={handleEnd}
       onPointerCancel={handleEnd}
       style={{
-        cursor: 'crosshair',
+        cursor: isEraser ? 'grab' : 'crosshair',
         display: 'block',
         backgroundColor: '#FFFFFF',
         touchAction: 'none',

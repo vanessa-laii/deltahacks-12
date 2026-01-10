@@ -1,15 +1,37 @@
 'use client';
 
 import { useState } from 'react';
-import { Palette } from 'lucide-react';
+import { Palette, Eraser, Save } from 'lucide-react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import Canvas from '@/components/Canvas/Canvas';
 import ColorPicker from '@/components/ColorPicker';
+import { saveToGallery } from '@/app/subpages/gallery';
 
 export default function HomePage() {
+  const router = useRouter();
   const [selectedColor, setSelectedColor] = useState('#D28378');
   const [brushSize, setBrushSize] = useState(20);
   const [showColorPicker, setShowColorPicker] = useState(false);
+  const [isEraser, setIsEraser] = useState(false);
+
+  const handleSave = async () => {
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    if (canvas) {
+      try {
+        const imageId = await saveToGallery(canvas);
+        if (imageId) {
+          alert('Drawing saved to gallery!');
+          router.push('/gallery');
+        } else {
+          alert('Failed to save drawing. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error saving:', error);
+        alert('Failed to save drawing. Please try again.');
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col relative" style={{ backgroundColor: '#FFFFFF' }}>
@@ -41,12 +63,14 @@ export default function HomePage() {
 
             {/* Color Picker Button */}
             <button
-              onClick={() => setShowColorPicker(true)}
+              onClick={() => {
+                setShowColorPicker(true);
+                setIsEraser(false); // Turn off eraser when opening color picker
+              }}
               className="w-full h-20 rounded-2xl text-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-md hover:shadow-lg active:scale-95"
               style={{ 
                 backgroundColor: '#F4C2A1',
-                color: '#6B5D5D',
-                border: '3px solid #D4A5A5'
+                color: '#6B5D5D'
               }}
             >
               <Palette 
@@ -55,6 +79,36 @@ export default function HomePage() {
                 fill={selectedColor}
               />
               Colors
+            </button>
+
+            {/* Eraser Button */}
+            <button
+              onClick={() => setIsEraser(!isEraser)}
+              className={`w-full h-20 rounded-2xl text-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-md hover:shadow-lg active:scale-95 ${
+                isEraser ? 'ring-4 ring-[#C17767]' : ''
+              }`}
+              style={{ 
+                backgroundColor: isEraser ? '#D4A5A5' : '#A9AFB4',
+                color: isEraser ? '#FFFFFF' : '#6B5D5D',
+                border: isEraser ? '3px solid #C17767' : '3px solid #A9AFB4'
+              }}
+            >
+            
+              <Eraser className="w-8 h-8" />
+              Eraser
+            </button>
+
+            {/* Save Button */}
+            <button
+              onClick={handleSave}
+              className="w-full h-20 rounded-2xl text-2xl font-bold flex items-center justify-center gap-3 transition-all shadow-md hover:shadow-lg active:scale-95"
+              style={{ 
+                backgroundColor: '#8FA8C7',
+                color: '#FFFFFF'
+              }}
+            >
+              <Save className="w-8 h-8" />
+              Save
             </button>
 
             {/* Clear Button */}
@@ -72,8 +126,7 @@ export default function HomePage() {
               className="w-full h-20 rounded-2xl text-2xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
               style={{ 
                 backgroundColor: '#A8C09A',
-                color: '#FFFFFF',
-                border: '3px solid #8FA8C7'
+                color: '#FFFFFF'
               }}
             >
               Clear
@@ -104,6 +157,7 @@ export default function HomePage() {
               <Canvas
                 color={selectedColor}
                 brushSize={brushSize}
+                isEraser={isEraser}
               />
             </div>
           </div>
@@ -125,10 +179,14 @@ export default function HomePage() {
           pointerEvents: 'none' // Allow clicks to pass through
         }}
       >
-        <div style={{ pointerEvents: 'auto' }}>
+        <div 
+          onClick={() => router.push('/gallery')}
+          className="cursor-pointer transition-transform hover:scale-110 active:scale-95"
+          style={{ pointerEvents: 'auto' }}
+        >
           <Image
             src="/app-logo.png"
-            alt="MindFill Logo"
+            alt="MindFill Logo - Click to view Gallery"
             width={250}
             height={250}
             className="object-contain drop-shadow-lg"
