@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       // Convert original buffer to PNG if needed
       const inputPngBuffer = await sharp(buffer).png().toBuffer();
       
-      const { data: inputUploadData, error: inputUploadError } = await supabase.storage
+      const { error: inputUploadError } = await supabase.storage
         .from('gallery-images')
         .upload(inputFileName, inputPngBuffer, {
           contentType: 'image/png',
@@ -167,16 +167,20 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 2: Convert to grayscale and apply Canny edge detector
-    // This creates white edges on black background (as per the example)
+    // This creates white edges on black background
     console.log('Converting to grayscale and applying Canny edge detector...');
     const greyImage = image.grey();
     console.log('After grayscale, sample pixel:', greyImage.getPixel(Math.floor(greyImage.width / 2), Math.floor(greyImage.height / 2)));
     
-    const edges = greyImage.cannyEdgeDetector();
+    // Apply Canny edge detector with thresholds (lower = more detail)
+    const edges = greyImage.cannyEdgeDetector({
+      lowThreshold: 20,
+      highThreshold: 40,
+    });
     console.log('After Canny edge detection, sample pixel:', edges.getPixel(Math.floor(edges.width / 2), Math.floor(edges.height / 2)));
     console.log('Edge detection colorModel:', edges.colorModel);
     
-    // Check sample pixels
+    // Check sample pixels before inversion (should be white edges on black background)
     let edgePixelCount = 0;
     let whitePixelCount = 0;
     for (let y = 0; y < Math.min(edges.height, 20); y++) {
@@ -187,14 +191,35 @@ export async function POST(request: NextRequest) {
         if (value > 200) whitePixelCount++;
       }
     }
-    console.log(`Edge detection sample: ${edgePixelCount} non-black pixels, ${whitePixelCount} white pixels out of 400 checked`);
+    console.log(`Before inversion - Edge detection sample: ${edgePixelCount} non-black pixels, ${whitePixelCount} white pixels out of 400 checked`);
 
-    // Step 3: Convert to RGB for encoding
-    let finalImage = edges.convertColor('RGB');
+    // Step 3: Invert the edges to get black edges on white background
+    // cannyEdgeDetector() returns a Mask, which already has invert() method
+    // This creates the coloring book look (black lines on white background)
+    console.log('Inverting edges...');
+    const coloringPage = edges.invert();
+    console.log('After mask().invert(), sample pixel:', coloringPage.getPixel(Math.floor(coloringPage.width / 2), Math.floor(coloringPage.height / 2)));
+    
+    // Check sample pixels after mask().invert() (should be black edges on white background)
+    let blackPixelCount = 0;
+    let whiteBgCount = 0;
+    for (let y = 0; y < Math.min(coloringPage.height, 20); y++) {
+      for (let x = 0; x < Math.min(coloringPage.width, 20); x++) {
+        const pixel = coloringPage.getPixel(x, y);
+        const value = Array.isArray(pixel) ? pixel[0] : pixel;
+        if (value < 50) blackPixelCount++; // Very dark = black edges
+        if (value > 200) whiteBgCount++; // Very light = white background
+      }
+    }
+    console.log(`After mask().invert() - Black edges: ${blackPixelCount}, White background: ${whiteBgCount} out of 400 checked`);
+
+    // Step 4: Convert to RGB for encoding
+    const finalImage = coloringPage.convertColor('RGB');
     console.log('After RGB conversion, sample pixel:', finalImage.getPixel(Math.floor(finalImage.width / 2), Math.floor(finalImage.height / 2)));
 
     // Convert image-js Image to buffer using sharp for encoding
     // Use getRawImage() to get raw image data in a public way
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const rawImage = (finalImage as any).getRawImage();
     
     // Get the raw data array from the raw image
@@ -273,7 +298,7 @@ export async function POST(request: NextRequest) {
       const fileName = `processed-templates/${timestamp}_${randomString}.png`;
       
       // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('gallery-images')
         .upload(fileName, outputBuffer, {
           contentType: 'image/png',
