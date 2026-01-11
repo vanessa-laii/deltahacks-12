@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Trash2, ArrowLeft } from 'lucide-react';
-import { getGallery, deleteFromGallery, clearGallery, type SavedImage } from '@/app/subpages/gallery';
+import { Trash2, ArrowLeft, BarChart3 } from 'lucide-react';
+import { getGallery, deleteFromGallery, type SavedImage } from '@/app/subpages/gallery';
 
 export default function GalleryPage() {
   const router = useRouter();
@@ -40,21 +40,6 @@ export default function GalleryPage() {
     }
   };
 
-  const handleClearAll = async () => {
-    if (confirm('Are you sure you want to clear all saved images?')) {
-      try {
-        const success = await clearGallery();
-        if (success) {
-          setSavedImages([]);
-        } else {
-          alert('Failed to clear gallery. Please try again.');
-        }
-      } catch (error) {
-        console.error('Error clearing gallery:', error);
-        alert('Failed to clear gallery. Please try again.');
-      }
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#FFFFFF' }}>
@@ -75,18 +60,17 @@ export default function GalleryPage() {
           
           <h1 className="text-4xl font-bold" style={{ color: '#6B5D5D' }}>Gallery</h1>
           
-          {savedImages.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="px-6 py-3 rounded-2xl text-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
-              style={{ 
-                backgroundColor: '#C17767',
-                color: '#FFFFFF'
-              }}
-            >
-              Clear All
-            </button>
-          )}
+          <button
+            onClick={() => router.push('/gallery/overview')}
+            className="flex items-center gap-3 px-6 py-3 rounded-2xl text-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
+            style={{ 
+              backgroundColor: '#8FA8C7',
+              color: '#FFFFFF'
+            }}
+          >
+            <BarChart3 className="w-6 h-6" />
+            Overview
+          </button>
         </div>
       </header>
 

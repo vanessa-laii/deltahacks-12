@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Palette, Eraser, Save, Upload, Droplet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Canvas from '@/components/Canvas/Canvas';
 import ColorPicker from '@/components/ColorPicker';
+import SessionSummaryModal from '@/components/SessionSummaryModal';
 import { saveToGallery } from '@/app/subpages/gallery';
 
 export default function HomePage() {
@@ -18,14 +19,50 @@ export default function HomePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [baseImage, setBaseImage] = useState<string | undefined>(undefined); // Outline/base image data URL
   const [mode, setMode] = useState<'fun' | 'care'>('fun'); // Mode: 'fun' for basic coloring, 'care' for dementia patients
+  const [showSessionSummary, setShowSessionSummary] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
 
-  const handleSave = async () => {
+  // Initialize session start time on mount
+  useEffect(() => {
+    setSessionStartTime(new Date());
+  }, []);
+
+  // Calculate session duration
+  const getSessionDuration = (): string => {
+    if (!sessionStartTime) return '00:00';
+    const now = new Date();
+    const diffMs = now.getTime() - sessionStartTime.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffSecs = Math.floor((diffMs % 60000) / 1000);
+    return `${diffMins.toString().padStart(2, '0')}:${diffSecs.toString().padStart(2, '0')}`;
+  };
+
+  // Get canvas dimensions
+  const getCanvasDimensions = (): string => {
+    if (typeof document === 'undefined') return '--x--'; // SSR guard
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    if (canvas && canvas.width > 0 && canvas.height > 0) {
+      return `${canvas.width}x${canvas.height}`;
+    }
+    return '--x--';
+  };
+
+  const handleSave = () => {
+    // Show session summary modal instead of directly saving
+    setShowSessionSummary(true);
+  };
+
+  const handleSessionSummaryNext = async () => {
+    // Close the modal and save the image
+    setShowSessionSummary(false);
+    
     const canvas = document.querySelector('canvas') as HTMLCanvasElement;
     if (canvas) {
       try {
         const imageId = await saveToGallery(canvas);
         if (imageId) {
-          alert('Drawing saved to gallery!');
+          // Reset session start time for next session
+          setSessionStartTime(new Date());
           router.push('/gallery');
         } else {
           alert('Failed to save drawing. Please try again.');
@@ -357,6 +394,15 @@ export default function HomePage() {
         onClose={() => setShowColorPicker(false)}
         selectedColor={selectedColor}
         onColorSelect={setSelectedColor}
+      />
+
+      {/* Session Summary Modal */}
+      <SessionSummaryModal
+        isOpen={showSessionSummary}
+        onNext={handleSessionSummaryNext}
+        sessionDuration={getSessionDuration()}
+        colorsUsed={1} // TODO: Track actual colors used
+        imageSize={getCanvasDimensions()}
       />
 
 
