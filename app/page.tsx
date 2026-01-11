@@ -34,6 +34,7 @@ export default function HomePage() {
   }>>([]);
   const [colorsUsedSet, setColorsUsedSet] = useState<Set<string>>(new Set());
   const nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const speakTextRef = useRef<((text: string) => void) | null>(null);
   
   // Phase 2: Calculated metrics
   const [sessionMetrics, setSessionMetrics] = useState<{
@@ -48,6 +49,58 @@ export default function HomePage() {
     totalTime: number | null;
     nudgeCount: number;
   } | null>(null);
+
+  // Function to speak text using Web Speech API
+  const speakText = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      console.warn('Speech synthesis not supported in this browser');
+      return;
+    }
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9; // Slightly slower for clarity
+    utterance.pitch = 1.0;
+    utterance.volume = 1.0;
+    
+    // Try to use a friendly voice if available
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(voice => 
+      voice.name.includes('Google') || 
+      voice.name.includes('Microsoft') ||
+      voice.lang.startsWith('en')
+    );
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
+    utterance.onerror = (error) => {
+      console.error('Speech synthesis error:', error);
+    };
+
+    window.speechSynthesis.speak(utterance);
+  }, []);
+
+  // Store speakText in ref so it can be used in useEffect without dependency issues
+  useEffect(() => {
+    speakTextRef.current = speakText;
+  }, [speakText]);
+
+  // Load voices when component mounts (some browsers need this)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      // Load voices (some browsers need this)
+      const loadVoices = () => {
+        window.speechSynthesis.getVoices();
+      };
+      loadVoices();
+      if (window.speechSynthesis.onvoiceschanged !== undefined) {
+        window.speechSynthesis.onvoiceschanged = loadVoices;
+      }
+    }
+  }, []);
 
   // Initialize session when photo is loaded (when baseImage changes) - ONLY IN CARE MODE
   useEffect(() => {
@@ -73,8 +126,22 @@ export default function HomePage() {
         };
         setSessionEvents(prev => [...prev, nudgeEvent]);
         
-        // TODO: Call Gemini "Encouragement" API here (Phase 3)
-        console.log('Nudge timer fired - should call Gemini API');
+        // Call Gemini "Encouragement" API and speak it
+        fetch('/api/gemini/encouragement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.message) {
+              console.log('Encouragement:', data.message);
+              // Speak the encouragement message
+              if (speakTextRef.current) {
+                speakTextRef.current(data.message);
+              }
+            }
+          })
+          .catch(err => console.error('Error calling encouragement API:', err));
         
         // Reset timer for next nudge
         nudgeTimerRef.current = setTimeout(() => {
@@ -83,7 +150,7 @@ export default function HomePage() {
             timestamp: Date.now(),
           };
           setSessionEvents(prev => [...prev, nextNudgeEvent]);
-          // Phase 3: Call Gemini "Encouragement" API for next nudge
+          // Call Gemini "Encouragement" API for next nudge
           fetch('/api/gemini/encouragement', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -92,7 +159,8 @@ export default function HomePage() {
             .then(data => {
               if (data.success && data.message) {
                 console.log('Encouragement:', data.message);
-                // TODO: Display encouragement message
+                // Speak the encouragement message
+                speakText(data.message);
               }
             })
             .catch(err => console.error('Error calling encouragement API:', err));
@@ -153,8 +221,22 @@ export default function HomePage() {
         };
         setSessionEvents(prev => [...prev, nudgeEvent]);
         
-        // TODO: Call Gemini "Encouragement" API here (Phase 3)
-        console.log('Nudge timer fired - should call Gemini API');
+        // Call Gemini "Encouragement" API and speak it
+        fetch('/api/gemini/encouragement', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success && data.message) {
+              console.log('Encouragement:', data.message);
+              // Speak the encouragement message
+              if (speakTextRef.current) {
+                speakTextRef.current(data.message);
+              }
+            }
+          })
+          .catch(err => console.error('Error calling encouragement API:', err));
         
         // Reset timer for next nudge
         nudgeTimerRef.current = setTimeout(() => {
@@ -163,7 +245,7 @@ export default function HomePage() {
             timestamp: Date.now(),
           };
           setSessionEvents(prev => [...prev, nextNudgeEvent]);
-          // Phase 3: Call Gemini "Encouragement" API for next nudge
+          // Call Gemini "Encouragement" API for next nudge
           fetch('/api/gemini/encouragement', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -172,7 +254,8 @@ export default function HomePage() {
             .then(data => {
               if (data.success && data.message) {
                 console.log('Encouragement:', data.message);
-                // TODO: Display encouragement message
+                // Speak the encouragement message
+                speakText(data.message);
               }
             })
             .catch(err => console.error('Error calling encouragement API:', err));
