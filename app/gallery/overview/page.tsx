@@ -12,6 +12,12 @@ interface Session {
   neglect_ratio: number | null;
   tremor_index: number | null;
   ai_insight: string | null;
+  quadrant_data: {
+    topLeft: number;
+    topRight: number;
+    bottomLeft: number;
+    bottomRight: number;
+  } | null;
 }
 
 interface StatsData {
@@ -25,6 +31,13 @@ interface StatsData {
     neglectRatio: { date: string; value: number }[];
     tremorIndex: { date: string; value: number }[];
     activityByDate: { date: string; count: number }[];
+    quadrantActivity?: {
+      date: string;
+      topLeft: number;
+      topRight: number;
+      bottomLeft: number;
+      bottomRight: number;
+    }[];
   };
 }
 
@@ -219,6 +232,48 @@ export default function OverviewPage() {
                   />
                 </div>
 
+                {/* Quadrant Activity Summary */}
+                {stats?.trends.quadrantActivity && stats.trends.quadrantActivity.length > 0 && (
+                  <div 
+                    className="rounded-3xl p-6 shadow-lg"
+                    style={{ 
+                      backgroundColor: '#F5E6D3',
+                      border: '2px solid #D4E4F0'
+                    }}
+                  >
+                    <div className="flex items-center gap-3 mb-6">
+                      <BarChart3 className="w-8 h-8" style={{ color: '#8FA8C7' }} />
+                      <h2 className="text-3xl font-bold" style={{ color: '#6B5D5D' }}>Quadrant Distribution</h2>
+                    </div>
+                    <div className="space-y-3">
+                      {(() => {
+                        const latest = stats.trends.quadrantActivity[stats.trends.quadrantActivity.length - 1];
+                        if (!latest) return null;
+                        return (
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FFFFFF', border: '2px solid #D4E4F0' }}>
+                              <p className="text-lg font-semibold mb-1" style={{ color: '#6B5D5D' }}>Top-Left</p>
+                              <p className="text-2xl font-bold" style={{ color: '#C17767' }}>{latest.topLeft.toFixed(1)}%</p>
+                            </div>
+                            <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FFFFFF', border: '2px solid #D4E4F0' }}>
+                              <p className="text-lg font-semibold mb-1" style={{ color: '#6B5D5D' }}>Top-Right</p>
+                              <p className="text-2xl font-bold" style={{ color: '#8FA8C7' }}>{latest.topRight.toFixed(1)}%</p>
+                            </div>
+                            <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FFFFFF', border: '2px solid #D4E4F0' }}>
+                              <p className="text-lg font-semibold mb-1" style={{ color: '#6B5D5D' }}>Bottom-Left</p>
+                              <p className="text-2xl font-bold" style={{ color: '#A8C09A' }}>{latest.bottomLeft.toFixed(1)}%</p>
+                            </div>
+                            <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FFFFFF', border: '2px solid #D4E4F0' }}>
+                              <p className="text-lg font-semibold mb-1" style={{ color: '#6B5D5D' }}>Bottom-Right</p>
+                              <p className="text-2xl font-bold" style={{ color: '#D4A5A5' }}>{latest.bottomRight.toFixed(1)}%</p>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
+
                 {/* Tremor Index Trend */}
                 <div 
                   className="rounded-3xl p-6 shadow-lg"
@@ -299,6 +354,17 @@ export default function OverviewPage() {
                                   Neglect Ratio: {Number(session.neglect_ratio).toFixed(3)}
                                 </p>
                               )}
+                              {session.quadrant_data && (
+                                <div className="text-base mt-1 space-y-1" style={{ color: '#8B7D6B' }}>
+                                  <p className="font-semibold">Quadrant Activity:</p>
+                                  <div className="grid grid-cols-2 gap-1 text-sm">
+                                    <span>TL: {session.quadrant_data.topLeft.toFixed(1)}%</span>
+                                    <span>TR: {session.quadrant_data.topRight.toFixed(1)}%</span>
+                                    <span>BL: {session.quadrant_data.bottomLeft.toFixed(1)}%</span>
+                                    <span>BR: {session.quadrant_data.bottomRight.toFixed(1)}%</span>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <div className="text-right">
                               {session.completion_time !== null && (
@@ -352,20 +418,6 @@ export default function OverviewPage() {
                         {stats && stats.averageCompletionTime !== null 
                           ? formatDuration(stats.averageCompletionTime)
                           : 'N/A'}
-                      </p>
-                    </div>
-                    <div 
-                      className="rounded-2xl p-4"
-                      style={{ 
-                        backgroundColor: '#FFFFFF',
-                        border: '2px solid #D4E4F0'
-                      }}
-                    >
-                      <p className="text-xl font-bold mb-2" style={{ color: '#6B5D5D' }}>Images per Session</p>
-                      <p className="text-2xl font-semibold" style={{ color: '#A8C09A' }}>
-                        {stats && stats.totalSessions > 0 
-                          ? (stats.totalImages / stats.totalSessions).toFixed(1)
-                          : '0'}
                       </p>
                     </div>
                     <div 

@@ -38,6 +38,12 @@ export default function HomePage() {
   // Phase 2: Calculated metrics
   const [sessionMetrics, setSessionMetrics] = useState<{
     neglectRatio: number | null;
+    quadrantActivity: {
+      topLeft: number;
+      topRight: number;
+      bottomLeft: number;
+      bottomRight: number;
+    } | null;
     tremorScore: number | null;
     totalTime: number | null;
     nudgeCount: number;
@@ -230,15 +236,51 @@ export default function HomePage() {
     const endTime = new Date();
     const startTime = sessionStartTime;
     
-    // 1. Unilateral Neglect Math
-    const mid = canvas.width / 2;
+    // 1. 4-Quadrant Spatial Neglect Analysis
+    const midX = canvas.width / 2;
+    const midY = canvas.height / 2;
     const clickEvents = sessionEvents.filter(e => 
       e.type === 'fill' || e.type === 'draw' || e.type === 'erase'
     );
-    const leftClicks = clickEvents.filter(e => e.x !== undefined && e.x < mid).length;
-    const rightClicks = clickEvents.filter(e => e.x !== undefined && e.x >= mid).length;
-    const totalClicks = leftClicks + rightClicks;
-    const neglectRatio = totalClicks > 0 ? leftClicks / totalClicks : 0.5; // Default to 0.5 if no clicks
+    
+    // Count clicks in each quadrant
+    let topLeft = 0;
+    let topRight = 0;
+    let bottomLeft = 0;
+    let bottomRight = 0;
+    
+    clickEvents.forEach(e => {
+      if (e.x !== undefined && e.y !== undefined) {
+        if (e.x < midX && e.y < midY) {
+          topLeft++;
+        } else if (e.x >= midX && e.y < midY) {
+          topRight++;
+        } else if (e.x < midX && e.y >= midY) {
+          bottomLeft++;
+        } else {
+          bottomRight++;
+        }
+      }
+    });
+    
+    const totalClicks = topLeft + topRight + bottomLeft + bottomRight;
+    
+    // Calculate percentages for each quadrant
+    const quadrantActivity = totalClicks > 0 ? {
+      topLeft: (topLeft / totalClicks) * 100,
+      topRight: (topRight / totalClicks) * 100,
+      bottomLeft: (bottomLeft / totalClicks) * 100,
+      bottomRight: (bottomRight / totalClicks) * 100,
+    } : {
+      topLeft: 25,
+      topRight: 25,
+      bottomLeft: 25,
+      bottomRight: 25,
+    };
+    
+    // Calculate horizontal neglect ratio (for backward compatibility)
+    const leftClicks = topLeft + bottomLeft;
+    const neglectRatio = totalClicks > 0 ? leftClicks / totalClicks : 0.5;
 
     // 2. Motor Stability (Jitter) Math
     const moveEvents = sessionEvents.filter(e => e.type === 'move' && e.x !== undefined && e.y !== undefined);
@@ -272,6 +314,7 @@ export default function HomePage() {
 
     return {
       neglectRatio,
+      quadrantActivity,
       tremorScore: normalizedTremorScore,
       totalTime,
       nudgeCount,
@@ -294,6 +337,7 @@ export default function HomePage() {
           body: JSON.stringify({
             totalTime: metrics.totalTime,
             neglectRatio: metrics.neglectRatio,
+            quadrantActivity: metrics.quadrantActivity,
             tremorScore: metrics.tremorScore,
             nudgeCount: metrics.nudgeCount,
             context: 'a coloring page', // TODO: Could be more specific based on uploaded image
@@ -334,6 +378,29 @@ export default function HomePage() {
       try {
         const imageId = await saveToGallery(canvas);
         if (imageId) {
+          // If in Care mode and we have session metrics, save session data
+          if (mode === 'care' && sessionMetrics && sessionAnalysis) {
+            try {
+              await fetch('/api/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  imageId,
+                  completionTime: sessionMetrics.totalTime,
+                  neglectRatio: sessionMetrics.neglectRatio,
+                  quadrantActivity: sessionMetrics.quadrantActivity,
+                  tremorIndex: sessionMetrics.tremorScore,
+                  aiInsight: sessionAnalysis,
+                  userId: null, // TODO: Get from auth session
+                }),
+              });
+              console.log('Session data saved to database');
+            } catch (error) {
+              console.error('Error saving session data:', error);
+              // Don't block navigation if session save fails
+            }
+          }
+          
           // Reset session start time for next session
           setSessionStartTime(new Date());
           router.push('/gallery');
@@ -748,7 +815,7 @@ export default function HomePage() {
           <img
             src="/app-logo.png"
             alt="MindFill Logo - Click to view Gallery"
-            className="object-contain drop-shadow-lg w-20 h-20 sm:w-28 sm:h-28 md:w-48 md:h-48 lg:w-[225px] lg:h-[225px]"
+            className="object-contain drop-shadow-lg w-20 h-20 sm:w-28 sm:h-28 md:w-48 md:h-48 lg:w-[200px] lg:h-[200px]"
             onError={(e) => {
               console.error('Failed to load logo image:', e);
               (e.target as HTMLImageElement).style.display = 'none';

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   neglect_ratio DECIMAL(5, 4), -- ratio of left vs right interactions (0-1)
   tremor_index DECIMAL(5, 4), -- measure of drawing stability
   ai_insight TEXT, -- Gemini-generated insights
+  quadrant_data JSONB, -- 4-quadrant activity data: {topLeft, topRight, bottomLeft, bottomRight} as percentages
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -52,11 +53,11 @@ CREATE POLICY "Users can delete their own images"
 -- Create policies for sessions
 CREATE POLICY "Users can view their own sessions"
   ON sessions FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR user_id IS NULL);
 
 CREATE POLICY "Users can insert their own sessions"
   ON sessions FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.uid() = user_id OR user_id IS NULL);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()

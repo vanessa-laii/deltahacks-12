@@ -103,6 +103,22 @@ export async function GET(request: NextRequest) {
       }))
       .reverse();
 
+    // Quadrant activity trend (latest 20 sessions with quadrant data)
+    const quadrantTrend = recentSessions
+      .slice(0, 20)
+      .filter(s => s.quadrant_data !== null)
+      .map(s => {
+        const quad = s.quadrant_data as any;
+        return {
+          date: new Date(s.created_at).toISOString().split('T')[0],
+          topLeft: quad?.topLeft || 0,
+          topRight: quad?.topRight || 0,
+          bottomLeft: quad?.bottomLeft || 0,
+          bottomRight: quad?.bottomRight || 0,
+        };
+      })
+      .reverse();
+
     // Tremor index trend (latest 20 sessions)
     const tremorIndexTrend = recentSessions
       .slice(0, 20)
@@ -124,6 +140,7 @@ export async function GET(request: NextRequest) {
         neglectRatio: neglectRatioTrend,
         tremorIndex: tremorIndexTrend,
         activityByDate,
+        quadrantActivity: quadrantTrend,
       },
     });
   } catch (error) {
