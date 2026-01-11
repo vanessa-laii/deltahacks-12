@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Palette, Eraser, Save, Upload, Droplet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Canvas from '@/components/Canvas/Canvas';
@@ -21,11 +21,112 @@ export default function HomePage() {
   const [mode, setMode] = useState<'fun' | 'care'>('fun'); // Mode: 'fun' for basic coloring, 'care' for dementia patients
   const [showSessionSummary, setShowSessionSummary] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  
+  // Phase 1: Session tracking for analytics
+  const [sessionEvents, setSessionEvents] = useState<Array<{
+    type: 'fill' | 'draw' | 'erase' | 'move' | 'nudge';
+    x?: number;
+    y?: number;
+    timestamp: number;
+  }>>([]);
+  const nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Initialize session start time on mount
+  // Initialize session when photo is loaded (when baseImage changes) - ONLY IN CARE MODE
   useEffect(() => {
-    setSessionStartTime(new Date());
-  }, []);
+    if (baseImage && mode === 'care') {
+      // Start new session when photo is loaded in Care mode
+      const startTime = new Date();
+      setSessionStartTime(startTime);
+      setSessionEvents([]);
+      
+      // Clear any existing nudge timer
+      if (nudgeTimerRef.current) {
+        clearTimeout(nudgeTimerRef.current);
+        nudgeTimerRef.current = null;
+      }
+      
+      // Start 60-second nudge timer
+      nudgeTimerRef.current = setTimeout(() => {
+        // Nudge timer fired - log nudge event
+        const nudgeEvent = {
+          type: 'nudge' as const,
+          timestamp: Date.now(),
+        };
+        setSessionEvents(prev => [...prev, nudgeEvent]);
+        
+        // TODO: Call Gemini "Encouragement" API here (Phase 3)
+        console.log('Nudge timer fired - should call Gemini API');
+        
+        // Reset timer for next nudge
+        nudgeTimerRef.current = setTimeout(() => {
+          const nextNudgeEvent = {
+            type: 'nudge' as const,
+            timestamp: Date.now(),
+          };
+          setSessionEvents(prev => [...prev, nextNudgeEvent]);
+          console.log('Next nudge timer fired - should call Gemini API');
+        }, 60000);
+      }, 60000);
+    } else if (mode === 'fun') {
+      // Clear session tracking when switching to Fun mode
+      setSessionEvents([]);
+      if (nudgeTimerRef.current) {
+        clearTimeout(nudgeTimerRef.current);
+        nudgeTimerRef.current = null;
+      }
+    }
+    
+    // Cleanup timer on unmount or when baseImage/mode changes
+    return () => {
+      if (nudgeTimerRef.current) {
+        clearTimeout(nudgeTimerRef.current);
+        nudgeTimerRef.current = null;
+      }
+    };
+  }, [baseImage, mode]);
+
+  // Handle canvas events from Canvas component - ONLY IN CARE MODE
+  const handleCanvasEvent = useCallback((event: {
+    type: 'fill' | 'draw' | 'erase' | 'move';
+    x: number;
+    y: number;
+    timestamp: number;
+  }) => {
+    // Only track events in Care mode
+    if (mode !== 'care') return;
+    
+    // Add event to session events array
+    setSessionEvents(prev => [...prev, event]);
+    
+    // Reset nudge timer on click events (fill, draw, erase)
+    if (event.type === 'fill' || event.type === 'draw' || event.type === 'erase') {
+      if (nudgeTimerRef.current) {
+        clearTimeout(nudgeTimerRef.current);
+      }
+      
+      // Start new 60-second timer
+      nudgeTimerRef.current = setTimeout(() => {
+        const nudgeEvent = {
+          type: 'nudge' as const,
+          timestamp: Date.now(),
+        };
+        setSessionEvents(prev => [...prev, nudgeEvent]);
+        
+        // TODO: Call Gemini "Encouragement" API here (Phase 3)
+        console.log('Nudge timer fired - should call Gemini API');
+        
+        // Reset timer for next nudge
+        nudgeTimerRef.current = setTimeout(() => {
+          const nextNudgeEvent = {
+            type: 'nudge' as const,
+            timestamp: Date.now(),
+          };
+          setSessionEvents(prev => [...prev, nextNudgeEvent]);
+          console.log('Next nudge timer fired - should call Gemini API');
+        }, 60000);
+      }, 60000);
+    }
+  }, [mode]);
 
   // Calculate session duration
   const getSessionDuration = (): string => {
@@ -47,9 +148,27 @@ export default function HomePage() {
     return '--x--';
   };
 
-  const handleSave = () => {
-    // Show session summary modal instead of directly saving
-    setShowSessionSummary(true);
+  const handleSave = async () => {
+    // Show session summary modal only in Care mode
+    if (mode === 'care') {
+      setShowSessionSummary(true);
+    } else {
+      // In Fun mode, save directly to gallery
+      const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+      if (canvas) {
+        try {
+          const imageId = await saveToGallery(canvas);
+          if (imageId) {
+            router.push('/gallery');
+          } else {
+            alert('Failed to save drawing. Please try again.');
+          }
+        } catch (error) {
+          console.error('Error saving:', error);
+          alert('Failed to save drawing. Please try again.');
+        }
+      }
+    }
   };
 
   const handleSessionSummaryNext = async () => {
@@ -382,6 +501,7 @@ export default function HomePage() {
                 baseImage={baseImage}
                 mode={mode}
                 isFloodFill={isFloodFill}
+                onEvent={mode === 'care' ? handleCanvasEvent : undefined}
               />
             </div>
           </div>

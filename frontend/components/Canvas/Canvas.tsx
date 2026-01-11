@@ -10,13 +10,23 @@ interface CanvasProps {
   baseImage?: string; // Data URL or URL of the outline/base image
   mode?: 'fun' | 'care';
   isFloodFill?: boolean; // Flood fill toggle
+  onEvent?: (event: {
+    type: 'fill' | 'draw' | 'erase' | 'move';
+    x: number;
+    y: number;
+    timestamp: number;
+  }) => void; // Phase 1: Event tracking callback
 }
 
-export default function Canvas({ color, brushSize, isEraser = false, baseImage, mode = 'fun', isFloodFill = false }: CanvasProps) {
+export default function Canvas({ color, brushSize, isEraser = false, baseImage, mode = 'fun', isFloodFill = false, onEvent }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
   const baseImageLoadedRef = useRef<boolean>(false);
+  
+  // Phase 1: Throttle move events to every 50ms
+  const lastMoveEventRef = useRef<number>(0);
+  const MOVE_EVENT_THROTTLE_MS = 50;
 
   // Store baseImage URL to reload after resize - use a ref that's updated when baseImage changes
   const baseImageUrlRef = useRef<string | undefined>(baseImage);
@@ -335,6 +345,18 @@ export default function Canvas({ color, brushSize, isEraser = false, baseImage, 
     if (!ctx) return;
     
     const { x, y } = getCoordinates(e);
+    const timestamp = Date.now();
+    
+    // Phase 1: Track click event
+    if (onEvent) {
+      if (!isEraser && isFloodFill) {
+        onEvent({ type: 'fill', x, y, timestamp });
+      } else if (isEraser) {
+        onEvent({ type: 'erase', x, y, timestamp });
+      } else {
+        onEvent({ type: 'draw', x, y, timestamp });
+      }
+    }
     
     // If flood fill is active, perform flood fill on click
     if (!isEraser && isFloodFill) {
@@ -350,7 +372,7 @@ export default function Canvas({ color, brushSize, isEraser = false, baseImage, 
     setIsDrawing(true);
     lastPointRef.current = { x, y };
     draw(x, y, null, null);
-  }, [getCoordinates, draw, isEraser, isFloodFill, color]);
+  }, [getCoordinates, draw, isEraser, isFloodFill, color, onEvent]);
 
   // Handle mouse/pointer move
   const handleMove = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
@@ -358,12 +380,19 @@ export default function Canvas({ color, brushSize, isEraser = false, baseImage, 
     e.preventDefault();
 
     const { x, y } = getCoordinates(e);
+    const timestamp = Date.now();
+    
+    // Phase 1: Track move event (throttled to every 50ms)
+    if (onEvent && timestamp - lastMoveEventRef.current >= MOVE_EVENT_THROTTLE_MS) {
+      onEvent({ type: 'move', x, y, timestamp });
+      lastMoveEventRef.current = timestamp;
+    }
     
     if (lastPointRef.current) {
       draw(x, y, lastPointRef.current.x, lastPointRef.current.y);
       lastPointRef.current = { x, y };
     }
-  }, [isDrawing, getCoordinates, draw]);
+  }, [isDrawing, getCoordinates, draw, onEvent]);
 
   // Handle mouse/pointer up
   const handleEnd = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
