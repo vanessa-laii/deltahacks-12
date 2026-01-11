@@ -7,7 +7,7 @@ import Canvas from '@/components/Canvas/Canvas';
 import ColorPicker from '@/components/ColorPicker';
 import SessionSummaryModal from '@/components/SessionSummaryModal';
 import SessionReportModal from '@/components/SessionReportModal';
-import { saveToGallery } from '@/app/subpages/gallery';
+import { saveToGallery } from '@/lib/gallery';
 
 export default function HomePage() {
   const router = useRouter();
@@ -32,6 +32,7 @@ export default function HomePage() {
     y?: number;
     timestamp: number;
   }>>([]);
+  const [colorsUsedSet, setColorsUsedSet] = useState<Set<string>>(new Set());
   const nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   // Phase 2: Calculated metrics
@@ -49,6 +50,7 @@ export default function HomePage() {
       const startTime = new Date();
       setSessionStartTime(startTime);
       setSessionEvents([]);
+      setColorsUsedSet(new Set());
       
       // Clear any existing nudge timer
       if (nudgeTimerRef.current) {
@@ -93,6 +95,7 @@ export default function HomePage() {
     } else if (mode === 'fun') {
       // Clear session tracking when switching to Fun mode
       setSessionEvents([]);
+      setColorsUsedSet(new Set());
       if (nudgeTimerRef.current) {
         clearTimeout(nudgeTimerRef.current);
         nudgeTimerRef.current = null;
@@ -120,6 +123,15 @@ export default function HomePage() {
     
     // Add event to session events array
     setSessionEvents(prev => [...prev, event]);
+    
+    // Track colors used (for fill and draw events, not erase)
+    if (event.type === 'fill' || event.type === 'draw') {
+      setColorsUsedSet(prev => {
+        const newSet = new Set(prev);
+        newSet.add(selectedColor);
+        return newSet;
+      });
+    }
     
     // Reset nudge timer on click events (fill, draw, erase)
     if (event.type === 'fill' || event.type === 'draw' || event.type === 'erase') {
@@ -161,7 +173,7 @@ export default function HomePage() {
         }, 60000);
       }, 60000);
     }
-  }, [mode]);
+  }, [mode, selectedColor]);
 
   // Calculate session duration
   const getSessionDuration = (): string => {
@@ -707,7 +719,7 @@ export default function HomePage() {
         isOpen={showSessionSummary}
         onNext={handleSessionSummaryNext}
         sessionDuration={getSessionDuration()}
-        colorsUsed={1} // TODO: Track actual colors used
+        colorsUsed={colorsUsedSet.size}
         imageSize={getCanvasDimensions()}
       />
 
