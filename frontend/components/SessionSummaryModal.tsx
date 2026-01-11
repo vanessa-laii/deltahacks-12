@@ -111,33 +111,6 @@ export default function SessionSummaryModal({
           </div>
         </div>
 
-        {/* Additional Info Section */}
-        <div 
-          className="rounded-2xl p-6 mb-8"
-          style={{ 
-            backgroundColor: '#F5E6D3',
-            border: '2px solid #D4E4F0'
-          }}
-        >
-          <h3 className="text-2xl font-bold mb-4" style={{ color: '#6B5D5D' }}>
-            Session Details
-          </h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold" style={{ color: '#6B5D5D' }}>Mode:</span>
-              <span className="text-lg" style={{ color: '#8B7D6B' }}>Coming soon</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold" style={{ color: '#6B5D5D' }}>Tools Used:</span>
-              <span className="text-lg" style={{ color: '#8B7D6B' }}>Coming soon</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-lg font-semibold" style={{ color: '#6B5D5D' }}>Completion:</span>
-              <span className="text-lg" style={{ color: '#8B7D6B' }}>Coming soon</span>
-            </div>
-          </div>
-        </div>
-
         {/* Next Button */}
         <button
           onClick={onNext}

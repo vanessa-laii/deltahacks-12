@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Canvas from '@/components/Canvas/Canvas';
 import ColorPicker from '@/components/ColorPicker';
 import SessionSummaryModal from '@/components/SessionSummaryModal';
+import SessionReportModal from '@/components/SessionReportModal';
 import { saveToGallery } from '@/app/subpages/gallery';
 
 export default function HomePage() {
@@ -20,7 +21,9 @@ export default function HomePage() {
   const [baseImage, setBaseImage] = useState<string | undefined>(undefined); // Outline/base image data URL
   const [mode, setMode] = useState<'fun' | 'care'>('fun'); // Mode: 'fun' for basic coloring, 'care' for dementia patients
   const [showSessionSummary, setShowSessionSummary] = useState(false);
+  const [showSessionReport, setShowSessionReport] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessionAnalysis, setSessionAnalysis] = useState<string | null>(null);
   
   // Phase 1: Session tracking for analytics
   const [sessionEvents, setSessionEvents] = useState<Array<{
@@ -30,6 +33,14 @@ export default function HomePage() {
     timestamp: number;
   }>>([]);
   const nudgeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Phase 2: Calculated metrics
+  const [sessionMetrics, setSessionMetrics] = useState<{
+    neglectRatio: number | null;
+    tremorScore: number | null;
+    totalTime: number | null;
+    nudgeCount: number;
+  } | null>(null);
 
   // Initialize session when photo is loaded (when baseImage changes) - ONLY IN CARE MODE
   useEffect(() => {
@@ -64,7 +75,19 @@ export default function HomePage() {
             timestamp: Date.now(),
           };
           setSessionEvents(prev => [...prev, nextNudgeEvent]);
-          console.log('Next nudge timer fired - should call Gemini API');
+          // Phase 3: Call Gemini "Encouragement" API for next nudge
+          fetch('/api/gemini/encouragement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.message) {
+                console.log('Encouragement:', data.message);
+                // TODO: Display encouragement message
+              }
+            })
+            .catch(err => console.error('Error calling encouragement API:', err));
         }, 60000);
       }, 60000);
     } else if (mode === 'fun') {
@@ -122,7 +145,19 @@ export default function HomePage() {
             timestamp: Date.now(),
           };
           setSessionEvents(prev => [...prev, nextNudgeEvent]);
-          console.log('Next nudge timer fired - should call Gemini API');
+          // Phase 3: Call Gemini "Encouragement" API for next nudge
+          fetch('/api/gemini/encouragement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (data.success && data.message) {
+                console.log('Encouragement:', data.message);
+                // TODO: Display encouragement message
+              }
+            })
+            .catch(err => console.error('Error calling encouragement API:', err));
         }, 60000);
       }, 60000);
     }
@@ -171,10 +206,117 @@ export default function HomePage() {
     }
   };
 
-  const handleSessionSummaryNext = async () => {
-    // Close the modal and save the image
-    setShowSessionSummary(false);
+  // Phase 2: Calculate session metrics
+  const calculateSessionMetrics = useCallback(() => {
+    if (!sessionStartTime || sessionEvents.length === 0) {
+      return null;
+    }
+
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    if (!canvas) return null;
+
+    const endTime = new Date();
+    const startTime = sessionStartTime;
     
+    // 1. Unilateral Neglect Math
+    const mid = canvas.width / 2;
+    const clickEvents = sessionEvents.filter(e => 
+      e.type === 'fill' || e.type === 'draw' || e.type === 'erase'
+    );
+    const leftClicks = clickEvents.filter(e => e.x !== undefined && e.x < mid).length;
+    const rightClicks = clickEvents.filter(e => e.x !== undefined && e.x >= mid).length;
+    const totalClicks = leftClicks + rightClicks;
+    const neglectRatio = totalClicks > 0 ? leftClicks / totalClicks : 0.5; // Default to 0.5 if no clicks
+
+    // 2. Motor Stability (Jitter) Math
+    const moveEvents = sessionEvents.filter(e => e.type === 'move' && e.x !== undefined && e.y !== undefined);
+    let tremorScore = 0;
+    const TREMOR_THRESHOLD = 3; // pixels - tiny movements
+    
+    for (let i = 1; i < moveEvents.length; i++) {
+      const prev = moveEvents[i - 1];
+      const curr = moveEvents[i];
+      
+      if (prev.x !== undefined && prev.y !== undefined && curr.x !== undefined && curr.y !== undefined) {
+        const distance = Math.sqrt(
+          Math.pow(curr.x - prev.x, 2) + Math.pow(curr.y - prev.y, 2)
+        );
+        
+        // If distance is tiny (micro-movement), increment tremor score
+        if (distance < TREMOR_THRESHOLD && distance > 0) {
+          tremorScore += 1;
+        }
+      }
+    }
+    
+    // Normalize tremor score (divide by number of move events for comparability)
+    const normalizedTremorScore = moveEvents.length > 0 ? tremorScore / moveEvents.length : 0;
+
+    // 3. Completion Velocity
+    const totalTime = (endTime.getTime() - startTime.getTime()) / 1000; // in seconds
+
+    // Count nudges
+    const nudgeCount = sessionEvents.filter(e => e.type === 'nudge').length;
+
+    return {
+      neglectRatio,
+      tremorScore: normalizedTremorScore,
+      totalTime,
+      nudgeCount,
+    };
+  }, [sessionEvents, sessionStartTime]);
+
+  const handleSessionSummaryNext = async () => {
+    // Phase 2: Calculate metrics before saving
+    const metrics = calculateSessionMetrics();
+    
+    if (metrics) {
+      setSessionMetrics(metrics);
+      console.log('Session Metrics:', metrics);
+      
+      // Phase 3: Call Gemini API for analysis
+      try {
+        const response = await fetch('/api/gemini/analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            totalTime: metrics.totalTime,
+            neglectRatio: metrics.neglectRatio,
+            tremorScore: metrics.tremorScore,
+            nudgeCount: metrics.nudgeCount,
+            context: 'a coloring page', // TODO: Could be more specific based on uploaded image
+          }),
+        });
+
+        const data = await response.json();
+        
+        if (data.success && data.analysis) {
+          setSessionAnalysis(data.analysis);
+          // Close session summary and show report modal
+          setShowSessionSummary(false);
+          setShowSessionReport(true);
+          return; // Don't save yet - wait for user to close report modal
+        } else {
+          console.error('Failed to get analysis:', data.error);
+          // Show user-friendly message if rate limited
+          if (data.error?.includes('429') || data.error?.includes('quota')) {
+            alert('Analysis temporarily unavailable due to API rate limits. Your drawing will still be saved to the gallery.');
+          } else {
+            alert('Unable to generate analysis at this time. Your drawing will still be saved to the gallery.');
+          }
+          // Continue with save even if analysis fails
+        }
+      } catch (error) {
+        console.error('Error calling Gemini API:', error);
+        // Continue with save even if API call fails
+      }
+    }
+    
+    // If no metrics or analysis failed, proceed with save
+    await saveImageToGallery();
+  };
+
+  const saveImageToGallery = async () => {
     const canvas = document.querySelector('canvas') as HTMLCanvasElement;
     if (canvas) {
       try {
@@ -190,6 +332,50 @@ export default function HomePage() {
         console.error('Error saving:', error);
         alert('Failed to save drawing. Please try again.');
       }
+    }
+  };
+
+  const handleReportClose = async () => {
+    setShowSessionReport(false);
+    // Save image after user closes report
+    await saveImageToGallery();
+  };
+
+  const handleDownloadReport = async () => {
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement;
+    if (!canvas || !sessionAnalysis) return;
+
+    try {
+      // Convert canvas to image
+      const imageDataUrl = canvas.toDataURL('image/png');
+      
+      // Create a text blob for the report
+      const reportText = `Session Analysis Report\n\n${sessionAnalysis}\n\nGenerated on ${new Date().toLocaleString()}`;
+      const textBlob = new Blob([reportText], { type: 'text/plain' });
+      
+      // Download text file
+      const textUrl = URL.createObjectURL(textBlob);
+      const textLink = document.createElement('a');
+      textLink.href = textUrl;
+      textLink.download = `session-report-${Date.now()}.txt`;
+      document.body.appendChild(textLink);
+      textLink.click();
+      document.body.removeChild(textLink);
+      URL.revokeObjectURL(textUrl);
+      
+      // Download image
+      const imageLink = document.createElement('a');
+      imageLink.href = imageDataUrl;
+      imageLink.download = `colored-image-${Date.now()}.png`;
+      document.body.appendChild(imageLink);
+      imageLink.click();
+      document.body.removeChild(imageLink);
+      
+      // Small delay between downloads
+      await new Promise(resolve => setTimeout(resolve, 100));
+    } catch (error) {
+      console.error('Error downloading report:', error);
+      alert('Failed to download report. Please try again.');
     }
   };
 
@@ -523,6 +709,14 @@ export default function HomePage() {
         sessionDuration={getSessionDuration()}
         colorsUsed={1} // TODO: Track actual colors used
         imageSize={getCanvasDimensions()}
+      />
+
+      {/* Session Report Modal (Phase 3) */}
+      <SessionReportModal
+        isOpen={showSessionReport}
+        onClose={handleReportClose}
+        analysis={sessionAnalysis || ''}
+        onDownloadReport={handleDownloadReport}
       />
 
 

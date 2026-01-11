@@ -60,7 +60,7 @@ export default function GalleryPage() {
           
           <h1 className="text-4xl font-bold" style={{ color: '#6B5D5D' }}>Gallery</h1>
           
-          <button
+          {/* <button
             onClick={() => router.push('/gallery/overview')}
             className="flex items-center gap-3 px-6 py-3 rounded-2xl text-xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95"
             style={{ 
@@ -70,7 +70,7 @@ export default function GalleryPage() {
           >
             <BarChart3 className="w-6 h-6" />
             Overview
-          </button>
+          </button> */}
         </div>
       </header>
 
