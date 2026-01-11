@@ -68,11 +68,18 @@ export default function HomePage() {
         body: formData,
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || 'Failed to upload image');
+        let errorMessage = 'Failed to upload image';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorData.details || errorMessage;
+        } catch (e) {
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       // Step 2: Process the uploaded image into an outline
       const processResponse = await fetch('/api/process-template', {

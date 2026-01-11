@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { Image } from 'image-js';
+import type { Image } from 'image-js';
+import { Image as ImageClass } from 'image-js';
 import sharp from 'sharp';
 import { createServerClient } from '@/lib/supabase';
+
+function cannyEdgeDetector(image: Image) {
+  image = image.grey();
+  return image.cannyEdgeDetector();
+}
 
 /**
  * POST /api/process-template - Convert an image to a coloring book outline
@@ -83,7 +89,7 @@ export async function POST(request: NextRequest) {
       console.log('Raw data length:', rawData.length, 'Expected:', width * height * 3);
       
       // Create an empty RGB image
-      image = new Image(width, height, {
+      image = new ImageClass(width, height, {
         colorModel: 'RGB',
       });
       
@@ -166,56 +172,12 @@ export async function POST(request: NextRequest) {
       image = image.resize({ width: Math.round(image.width * scale), height: Math.round(image.height * scale) });
     }
 
-    // Step 2: Convert to grayscale and apply Canny edge detector
-    // This creates white edges on black background
-    console.log('Converting to grayscale and applying Canny edge detector...');
-    const greyImage = image.grey();
-    console.log('After grayscale, sample pixel:', greyImage.getPixel(Math.floor(greyImage.width / 2), Math.floor(greyImage.height / 2)));
-    
-    // Apply Canny edge detector with thresholds (lower = more detail)
-    const edges = greyImage.cannyEdgeDetector({
-      lowThreshold: 20,
-      highThreshold: 40,
-    });
-    console.log('After Canny edge detection, sample pixel:', edges.getPixel(Math.floor(edges.width / 2), Math.floor(edges.height / 2)));
-    console.log('Edge detection colorModel:', edges.colorModel);
-    
-    // Check sample pixels before inversion (should be white edges on black background)
-    let edgePixelCount = 0;
-    let whitePixelCount = 0;
-    for (let y = 0; y < Math.min(edges.height, 20); y++) {
-      for (let x = 0; x < Math.min(edges.width, 20); x++) {
-        const pixel = edges.getPixel(x, y);
-        const value = Array.isArray(pixel) ? pixel[0] : pixel;
-        if (value > 0) edgePixelCount++;
-        if (value > 200) whitePixelCount++;
-      }
-    }
-    console.log(`Before inversion - Edge detection sample: ${edgePixelCount} non-black pixels, ${whitePixelCount} white pixels out of 400 checked`);
-
-    // Step 3: Invert the edges to get black edges on white background
-    // cannyEdgeDetector() returns a Mask, which already has invert() method
-    // This creates the coloring book look (black lines on white background)
-    console.log('Inverting edges...');
+    // Step 2: Apply Canny edge detector and invert
+    const edges = cannyEdgeDetector(image);
     const coloringPage = edges.invert();
-    console.log('After mask().invert(), sample pixel:', coloringPage.getPixel(Math.floor(coloringPage.width / 2), Math.floor(coloringPage.height / 2)));
-    
-    // Check sample pixels after mask().invert() (should be black edges on white background)
-    let blackPixelCount = 0;
-    let whiteBgCount = 0;
-    for (let y = 0; y < Math.min(coloringPage.height, 20); y++) {
-      for (let x = 0; x < Math.min(coloringPage.width, 20); x++) {
-        const pixel = coloringPage.getPixel(x, y);
-        const value = Array.isArray(pixel) ? pixel[0] : pixel;
-        if (value < 50) blackPixelCount++; // Very dark = black edges
-        if (value > 200) whiteBgCount++; // Very light = white background
-      }
-    }
-    console.log(`After mask().invert() - Black edges: ${blackPixelCount}, White background: ${whiteBgCount} out of 400 checked`);
 
-    // Step 4: Convert to RGB for encoding
+    // Step 3: Convert to RGB for encoding
     const finalImage = coloringPage.convertColor('RGB');
-    console.log('After RGB conversion, sample pixel:', finalImage.getPixel(Math.floor(finalImage.width / 2), Math.floor(finalImage.height / 2)));
 
     // Convert image-js Image to buffer using sharp for encoding
     // Use getRawImage() to get raw image data in a public way

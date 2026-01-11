@@ -62,7 +62,7 @@ export async function POST(request: NextRequest) {
     
     // Generate unique filename with original extension preserved
     const timestamp = Date.now();
-    const randomString = Math.random().toString(36).substr(2, 9);
+    const randomString = Math.random().toString(36).substring(2, 11);
     const extension = fileExtension;
     const fileName = `templates/${timestamp}_${randomString}${extension}`;
     
@@ -98,8 +98,15 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error in POST /api/upload-template:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Error details:', { errorMessage, errorStack });
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { 
+        error: 'Internal server error',
+        details: errorMessage,
+        ...(process.env.NODE_ENV === 'development' && { stack: errorStack })
+      },
       { status: 500 }
     );
   }
