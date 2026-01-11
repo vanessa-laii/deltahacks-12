@@ -1,11 +1,10 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Palette, Eraser, Save, Upload } from 'lucide-react';
+import { Palette, Eraser, Save, Upload, Droplet } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Canvas from '@/components/Canvas/Canvas';
 import ColorPicker from '@/components/ColorPicker';
-import FillModeModal from '@/components/FillModeModal';
 import { saveToGallery } from '@/app/subpages/gallery';
 
 export default function HomePage() {
@@ -15,11 +14,10 @@ export default function HomePage() {
   const [brushSize, setBrushSize] = useState(20);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
+  const [isFloodFill, setIsFloodFill] = useState(false); // Flood fill toggle for Fun mode
   const [isUploading, setIsUploading] = useState(false);
   const [baseImage, setBaseImage] = useState<string | undefined>(undefined); // Outline/base image data URL
   const [mode, setMode] = useState<'fun' | 'care'>('fun'); // Mode: 'fun' for basic coloring, 'care' for dementia patients
-  const [fillMode, setFillMode] = useState<'flood' | 'freehand' | null>(null); // Fill mode for Care mode
-  const [showFillModeModal, setShowFillModeModal] = useState(false);
 
   const handleSave = async () => {
     const canvas = document.querySelector('canvas') as HTMLCanvasElement;
@@ -157,28 +155,50 @@ export default function HomePage() {
               />
             </div>
 
-            {/* Upload Image Button */}
-            <button
-              onClick={handleUploadClick}
-              disabled={isUploading}
-              className="w-full h-14 sm:h-16 md:h-20 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ 
-                backgroundColor: '#A8C09A',
-                color: '#6B5D5D'
-              }}
-            >
-              <Upload className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8" />
-              <span className="hidden sm:inline">{isUploading ? 'Uploading...' : 'Upload Image'}</span>
-              <span className="sm:hidden">{isUploading ? 'Uploading...' : 'Upload'}</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/jpg"
-              onChange={handleFileChange}
-              className="hidden"
-              aria-label="Upload image template"
-            />
+            {/* Upload and Fill Row */}
+            <div className="flex gap-2 sm:gap-3">
+              {/* Upload Image Button */}
+              <button
+                onClick={handleUploadClick}
+                disabled={isUploading}
+                className="flex-1 h-14 sm:h-16 md:h-20 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-md hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ 
+                  backgroundColor: '#A8C09A',
+                  color: '#6B5D5D'
+                }}
+              >
+                <Upload className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8" />
+                {isUploading ? 'Uploading...' : 'Upload'}
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg"
+                onChange={handleFileChange}
+                className="hidden"
+                aria-label="Upload image template"
+              />
+
+              {/* Flood Fill Button */}
+              <button
+                onClick={() => {
+                  setIsFloodFill(!isFloodFill);
+                  setIsEraser(false); // Turn off eraser when using flood fill
+                }}
+                className={`flex-1 h-14 sm:h-16 md:h-20 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-md hover:shadow-lg active:scale-95 ${
+                  isFloodFill ? 'ring-2 sm:ring-4 ring-[#8FA8C7]' : ''
+                }`}
+                style={{ 
+                  backgroundColor: isFloodFill ? '#8FA8C7' : '#D4E4F0',
+                  color: isFloodFill ? '#FFFFFF' : '#6B5D5D',
+                  border: isFloodFill ? '2px solid #8FA8C7' : '2px solid #D4E4F0'
+                }}
+              >
+                <Droplet className="w-5 h-5 sm:w-6 sm:h-6 md:w-8 md:h-8" />
+                <span className="hidden sm:inline">Fill</span>
+                <span className="sm:hidden">Fill</span>
+              </button>
+            </div>
 
             {/* Colors and Eraser Row */}
             <div className="flex gap-2 sm:gap-3">
@@ -187,6 +207,7 @@ export default function HomePage() {
                 onClick={() => {
                   setShowColorPicker(true);
                   setIsEraser(false); // Turn off eraser when opening color picker
+                  setIsFloodFill(false); // Turn off flood fill when opening color picker
                 }}
                 className="flex-1 h-14 sm:h-16 md:h-20 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-md hover:shadow-lg active:scale-95"
                 style={{ 
@@ -200,12 +221,15 @@ export default function HomePage() {
                   fill={selectedColor}
                 />
                 <span className="hidden sm:inline">Colors</span>
-                <span className="sm:hidden">Color</span>
+                <span className="sm:hidden">Colour</span>
               </button>
 
               {/* Eraser Button */}
               <button
-                onClick={() => setIsEraser(!isEraser)}
+                onClick={() => {
+                  setIsEraser(!isEraser);
+                  setIsFloodFill(false); // Turn off flood fill when using eraser
+                }}
                 className={`flex-1 h-14 sm:h-16 md:h-20 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold flex items-center justify-center gap-2 sm:gap-3 transition-all shadow-md hover:shadow-lg active:scale-95 ${
                   isEraser ? 'ring-2 sm:ring-4 ring-[#C17767]' : ''
                 }`}
@@ -278,7 +302,7 @@ export default function HomePage() {
               </button>
               {/* Care Mode Button */}
               <button
-                onClick={() => setShowFillModeModal(true)}
+                onClick={() => setMode('care')}
                 className={`flex-1 py-2 sm:py-3 md:py-4 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95 ${
                   mode === 'care' ? 'ring-2 ring-[#8FA8C7]' : ''
                 }`}
@@ -320,7 +344,7 @@ export default function HomePage() {
                 isEraser={isEraser}
                 baseImage={baseImage}
                 mode={mode}
-                fillMode={fillMode}
+                isFloodFill={isFloodFill}
               />
             </div>
           </div>
@@ -335,16 +359,6 @@ export default function HomePage() {
         onColorSelect={setSelectedColor}
       />
 
-      {/* Fill Mode Modal */}
-      <FillModeModal
-        isOpen={showFillModeModal}
-        onClose={() => setShowFillModeModal(false)}
-        onSelectMode={(selectedFillMode) => {
-          setFillMode(selectedFillMode);
-          setMode('care');
-          setShowFillModeModal(false);
-        }}
-      />
 
       {/* Logo in bottom left corner - responsive size */}
       <div 

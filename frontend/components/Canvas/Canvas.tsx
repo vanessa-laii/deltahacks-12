@@ -9,10 +9,10 @@ interface CanvasProps {
   isEraser?: boolean;
   baseImage?: string; // Data URL or URL of the outline/base image
   mode?: 'fun' | 'care';
-  fillMode?: 'flood' | 'freehand' | null;
+  isFloodFill?: boolean; // Flood fill toggle
 }
 
-export default function Canvas({ color, brushSize, isEraser = false, baseImage, mode = 'fun', fillMode = null }: CanvasProps) {
+export default function Canvas({ color, brushSize, isEraser = false, baseImage, mode = 'fun', isFloodFill = false }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -336,8 +336,8 @@ export default function Canvas({ color, brushSize, isEraser = false, baseImage, 
     
     const { x, y } = getCoordinates(e);
     
-    // If in Care mode with Flood Fill, perform flood fill on click
-    if (mode === 'care' && fillMode === 'flood' && !isEraser) {
+    // If flood fill is active, perform flood fill on click
+    if (!isEraser && isFloodFill) {
       const fillColor = hexToRgb(color);
       floodFill(ctx, x, y, {
         fillColor,
@@ -350,7 +350,7 @@ export default function Canvas({ color, brushSize, isEraser = false, baseImage, 
     setIsDrawing(true);
     lastPointRef.current = { x, y };
     draw(x, y, null, null);
-  }, [getCoordinates, draw, mode, fillMode, isEraser, color]);
+  }, [getCoordinates, draw, isEraser, isFloodFill, color]);
 
   // Handle mouse/pointer move
   const handleMove = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
