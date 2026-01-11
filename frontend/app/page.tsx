@@ -15,6 +15,7 @@ export default function HomePage() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [isEraser, setIsEraser] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [baseImage, setBaseImage] = useState<string | undefined>(undefined); // Outline/base image data URL
 
   const handleSave = async () => {
     const canvas = document.querySelector('canvas') as HTMLCanvasElement;
@@ -73,14 +74,41 @@ export default function HomePage() {
         throw new Error(result.error || 'Failed to upload image');
       }
 
-      alert(`Image uploaded successfully! URL: ${result.url}\n\nNote: This will be processed into a coloring template in a future update.`);
+      // Step 2: Process the uploaded image into an outline
+      const processResponse = await fetch('/api/process-template', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageUrl: result.url,
+        }),
+      });
+
+      if (!processResponse.ok) {
+        const processError = await processResponse.json();
+        throw new Error(processError.error || 'Failed to process image into outline');
+      }
+
+      const processResult = await processResponse.json();
       
-      // TODO: In Phase 2, this will load the image onto the canvas
-      // For now, we just upload and store it
+      // Step 3: Load the processed outline onto the canvas
+      if (processResult.dataUrl) {
+        console.log('Setting baseImage, dataUrl length:', processResult.dataUrl.length);
+        console.log('DataUrl preview:', processResult.dataUrl.substring(0, 100));
+        setBaseImage(processResult.dataUrl);
+        // Small delay to ensure state is updated before alert
+        setTimeout(() => {
+          alert('Image uploaded and processed! The outline is now on your canvas. Start coloring!');
+        }, 100);
+      } else {
+        console.error('No dataUrl in processResult:', processResult);
+        throw new Error('Failed to get processed outline');
+      }
       
     } catch (error) {
-      console.error('Error uploading:', error);
-      alert(`Failed to upload image: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error uploading/processing:', error);
+      alert(`Failed to process image: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsUploading(false);
       // Reset file input
@@ -98,7 +126,7 @@ export default function HomePage() {
         <aside className="w-full md:w-1/3 lg:w-1/4 flex flex-col gap-3 sm:gap-4 md:gap-6">
           {/* Tools Container */}
           <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 p-3 sm:p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm" style={{ backgroundColor: '#F5E6D3', border: '2px solid #D4E4F0' }}>
-            <h2 className="text-xl sm:text-2xl font-bold" style={{ color: '#6B5D5D' }}>Tools</h2>
+            <h2 className="text-xl sm:text-3xl font-bold" style={{ color: '#6B5D5D' }}>Tools</h2>
             
             {/* Brush Size Control - Compact */}
             <div className="space-y-2 sm:space-y-3">
@@ -245,6 +273,7 @@ export default function HomePage() {
                 color={selectedColor}
                 brushSize={brushSize}
                 isEraser={isEraser}
+                baseImage={baseImage}
               />
             </div>
           </div>
