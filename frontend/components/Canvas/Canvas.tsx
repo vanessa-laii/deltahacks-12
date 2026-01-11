@@ -1,15 +1,18 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { floodFill, hexToRgb } from '@/lib/floodFill';
 
 interface CanvasProps {
   color: string;
   brushSize: number;
   isEraser?: boolean;
   baseImage?: string; // Data URL or URL of the outline/base image
+  mode?: 'fun' | 'care';
+  fillMode?: 'flood' | 'freehand' | null;
 }
 
-export default function Canvas({ color, brushSize, isEraser = false, baseImage }: CanvasProps) {
+export default function Canvas({ color, brushSize, isEraser = false, baseImage, mode = 'fun', fillMode = null }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const lastPointRef = useRef<{ x: number; y: number } | null>(null);
@@ -324,12 +327,30 @@ export default function Canvas({ color, brushSize, isEraser = false, baseImage }
   // Handle mouse/pointer down
   const handleStart = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {
     e.preventDefault();
-    setIsDrawing(true);
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     
     const { x, y } = getCoordinates(e);
+    
+    // If in Care mode with Flood Fill, perform flood fill on click
+    if (mode === 'care' && fillMode === 'flood' && !isEraser) {
+      const fillColor = hexToRgb(color);
+      floodFill(ctx, x, y, {
+        fillColor,
+        tolerance: 30, // Tolerance to handle slightly gray edges
+      });
+      return;
+    }
+    
+    // Otherwise, use normal drawing
+    setIsDrawing(true);
     lastPointRef.current = { x, y };
     draw(x, y, null, null);
-  }, [getCoordinates, draw]);
+  }, [getCoordinates, draw, mode, fillMode, isEraser, color]);
 
   // Handle mouse/pointer move
   const handleMove = useCallback((e: React.MouseEvent<HTMLCanvasElement> | React.PointerEvent<HTMLCanvasElement>) => {

@@ -5,6 +5,7 @@ import { Palette, Eraser, Save, Upload } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Canvas from '@/components/Canvas/Canvas';
 import ColorPicker from '@/components/ColorPicker';
+import FillModeModal from '@/components/FillModeModal';
 import { saveToGallery } from '@/app/subpages/gallery';
 
 export default function HomePage() {
@@ -16,6 +17,9 @@ export default function HomePage() {
   const [isEraser, setIsEraser] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [baseImage, setBaseImage] = useState<string | undefined>(undefined); // Outline/base image data URL
+  const [mode, setMode] = useState<'fun' | 'care'>('fun'); // Mode: 'fun' for basic coloring, 'care' for dementia patients
+  const [fillMode, setFillMode] = useState<'flood' | 'freehand' | null>(null); // Fill mode for Care mode
+  const [showFillModeModal, setShowFillModeModal] = useState(false);
 
   const handleSave = async () => {
     const canvas = document.querySelector('canvas') as HTMLCanvasElement;
@@ -73,7 +77,7 @@ export default function HomePage() {
         try {
           const errorData = await response.json();
           errorMessage = errorData.error || errorData.details || errorMessage;
-        } catch (e) {
+        } catch {
           errorMessage = `Server error: ${response.status} ${response.statusText}`;
         }
         throw new Error(errorMessage);
@@ -132,11 +136,11 @@ export default function HomePage() {
         {/* Left Sidebar - Tools (responsive width) */}
         <aside className="w-full md:w-1/3 lg:w-1/4 flex flex-col gap-3 sm:gap-4 md:gap-6">
           {/* Tools Container */}
-          <div className="flex flex-col gap-3 sm:gap-4 md:gap-6 p-3 sm:p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm" style={{ backgroundColor: '#F5E6D3', border: '2px solid #D4E4F0' }}>
+          <div className="flex flex-col gap-3 sm:gap-3 md:gap-4 p-3 sm:p-4 md:p-4 rounded-2xl md:rounded-3xl shadow-sm" style={{ backgroundColor: '#F5E6D3', border: '2px solid #D4E4F0' }}>
             <h2 className="text-xl sm:text-3xl font-bold" style={{ color: '#6B5D5D' }}>Tools</h2>
             
             {/* Brush Size Control - Compact */}
-            <div className="space-y-2 sm:space-y-3">
+            <div className="space-y-1 sm:space-y-1">
               <label className="block text-lg sm:text-xl font-semibold" style={{ color: '#6B5D5D' }}>
                 Brush: {brushSize}px
               </label>
@@ -253,6 +257,40 @@ export default function HomePage() {
               </button>
             </div>
           </div>
+
+          {/* Mode Selector Container */}
+          <div className="flex flex-col gap-2 sm:gap-3 p-3 sm:p-4 md:p-6 rounded-2xl md:rounded-3xl shadow-sm" style={{ backgroundColor: '#F5E6D3', border: '2px solid #D4E4F0' }}>
+            <h2 className="text-xl sm:text-2xl font-bold" style={{ color: '#6B5D5D' }}>Mode</h2>
+            
+            <div className="flex gap-2 sm:gap-3">
+              {/* Fun Mode Button */}
+              <button
+                onClick={() => setMode('fun')}
+                className={`flex-1 py-2 sm:py-3 md:py-4 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95 ${
+                  mode === 'fun' ? 'ring-2 ring-[#8FA8C7]' : ''
+                }`}
+                style={{
+                  backgroundColor: mode === 'fun' ? '#8FA8C7' : '#FFFFFF',
+                  color: mode === 'fun' ? '#FFFFFF' : '#6B5D5D',
+                }}
+              >
+                Fun
+              </button>
+              {/* Care Mode Button */}
+              <button
+                onClick={() => setShowFillModeModal(true)}
+                className={`flex-1 py-2 sm:py-3 md:py-4 rounded-xl sm:rounded-2xl text-lg sm:text-xl md:text-2xl font-bold transition-all shadow-md hover:shadow-lg active:scale-95 ${
+                  mode === 'care' ? 'ring-2 ring-[#8FA8C7]' : ''
+                }`}
+                style={{
+                  backgroundColor: mode === 'care' ? '#A8C09A' : '#FFFFFF',
+                  color: mode === 'care' ? '#FFFFFF' : '#6B5D5D',
+                }}
+              >
+                Care
+              </button>
+            </div>
+          </div>
         </aside>
 
         {/* Canvas Area (responsive width) */}
@@ -281,6 +319,8 @@ export default function HomePage() {
                 brushSize={brushSize}
                 isEraser={isEraser}
                 baseImage={baseImage}
+                mode={mode}
+                fillMode={fillMode}
               />
             </div>
           </div>
@@ -293,6 +333,17 @@ export default function HomePage() {
         onClose={() => setShowColorPicker(false)}
         selectedColor={selectedColor}
         onColorSelect={setSelectedColor}
+      />
+
+      {/* Fill Mode Modal */}
+      <FillModeModal
+        isOpen={showFillModeModal}
+        onClose={() => setShowFillModeModal(false)}
+        onSelectMode={(selectedFillMode) => {
+          setFillMode(selectedFillMode);
+          setMode('care');
+          setShowFillModeModal(false);
+        }}
       />
 
       {/* Logo in bottom left corner - responsive size */}
@@ -311,7 +362,7 @@ export default function HomePage() {
           <img
             src="/app-logo.png"
             alt="MindFill Logo - Click to view Gallery"
-            className="object-contain drop-shadow-lg w-20 h-20 sm:w-28 sm:h-28 md:w-48 md:h-48 lg:w-[250px] lg:h-[250px]"
+            className="object-contain drop-shadow-lg w-20 h-20 sm:w-28 sm:h-28 md:w-48 md:h-48 lg:w-[225px] lg:h-[225px]"
             onError={(e) => {
               console.error('Failed to load logo image:', e);
               (e.target as HTMLImageElement).style.display = 'none';
